@@ -27,7 +27,7 @@ dependencies = [
 # Pins match SSI v1 (requirements.txt) for reproducibility.
 cloud = [
     "vllm==0.6.3",
-    "torch==2.4.1",
+    "torch==2.4.0",
     "transformers==4.46.0",
 ]
 

@@ -42,3 +42,10 @@ python scripts/api_smoke.py
 uv sync --extra cloud
 python scripts/smoke_test.py
 ```
+
+> **Note on torch pin.** The `[cloud]` extra pins `torch==2.4.0` to match
+> `vllm==0.6.3`'s actual requirement. SSI v1's `requirements.txt` pinned
+> `torch==2.4.1`, but pip's loose resolver silently downgraded to 2.4.0 at
+> install time; this repo makes the real installed version explicit so
+> `uv sync --extra cloud` produces a reproducible environment — important
+> because Experiment 1 is specifically measuring inference determinism.
