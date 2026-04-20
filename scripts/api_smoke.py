@@ -31,8 +31,8 @@ N_PROMPTS = 10
 N_CALLS_PER_MODEL = 2
 MAX_TOKENS = 512
 
-OPENAI_MODEL = "gpt-4o"
-ANTHROPIC_MODEL = "claude-3-5-sonnet-latest"
+OPENAI_MODEL = "gpt-4o-2024-11-20"
+ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
 
 
 def load_prompts(n: int) -> list[dict]:
