@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+!.env.example
+uv.lock
+
+# Outputs
+smoke_test_output.json
+api_smoke_output.json
+data/results/
+
+.DS_Store
+.ipynb_checkpoints/
