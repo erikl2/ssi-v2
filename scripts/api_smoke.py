@@ -1,9 +1,10 @@
 """
 SSI v2 — API smoke test (Experiment 4, laptop-runnable).
 
-Loads 10 BeaverTails prompts, hits GPT-4o and Claude 3.5 Sonnet 2x each per
-prompt (no seed control; the point is to measure what real deployers actually
-get), and writes timestamped responses to api_smoke_output.json.
+Loads 10 BeaverTails prompts, hits gpt-4o-2024-11-20 and
+claude-haiku-4-5-20251001 2x each per prompt (no seed control; the point is to
+measure what real deployers actually get), and writes timestamped responses to
+api_smoke_output.json.
 
 Requires env vars OPENAI_API_KEY and ANTHROPIC_API_KEY — read from the process
 environment or a .env file at the repo root.

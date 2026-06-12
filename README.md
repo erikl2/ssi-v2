@@ -17,17 +17,23 @@ Alignment Forum writeup.
    and `torch.use_deterministic_algorithms(True)`; compare flip rates.
 2. **Scale testing** — Llama 3.1 70B + Qwen 2.5 72B on the same 876 prompts.
 3. **Production inference** — vLLM with spec decoding on/off, varied batch sizes.
-4. **Closed-source APIs** — GPT-4o + Claude 3.5 Sonnet, no seed control.
+4. **Closed-source APIs** — gpt-4o-2024-11-20, claude-sonnet-4-5-20250929,
+   claude-opus-4-7 (pinned in `scripts/run_exp4.py`), no seed control.
 5. **(Stretch) Safety training comparison** — base instruct vs. DPO/RLHF variants.
 
 ## Layout
 
 ```
 ssi_v2/
-├── data/prompts/prompts.csv   # 876 BeaverTails prompts (copied from v1)
+├── data/
+│   ├── prompts/
+│   │   ├── prompts.csv        # 876 BeaverTails prompts (copied from v1)
+│   │   └── exp4_sample.csv    # stratified 200-prompt sample for Exp 4
+│   └── results/exp4/          # Exp 4 output (calls.jsonl; gitignored)
 ├── scripts/
 │   ├── smoke_test.py          # vLLM smoke (Lambda Cloud)
-│   └── api_smoke.py           # OpenAI + Anthropic smoke (laptop-runnable)
+│   ├── api_smoke.py           # OpenAI + Anthropic smoke (laptop-runnable)
+│   └── run_exp4.py            # Exp 4 driver (resumable; ~3,000 calls, ~$20–25)
 └── pyproject.toml             # deps; install [cloud] extra on GPU box only
 ```
 
@@ -36,11 +42,15 @@ ssi_v2/
 ```bash
 # Laptop (API track — Exp 4)
 uv sync
-python scripts/api_smoke.py
+uv run python scripts/api_smoke.py
+
+# Exp 4 (resumable; rerun the same command after a crash)
+uv run python scripts/run_exp4.py --dry-run   # sanity-check the plan first
+uv run python scripts/run_exp4.py
 
 # Lambda Cloud (Exps 1–3)
 uv sync --extra cloud
-python scripts/smoke_test.py
+uv run python scripts/smoke_test.py
 ```
 
 > **Note on torch pin.** The `[cloud]` extra pins `torch==2.4.0` to match
