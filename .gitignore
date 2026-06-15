@@ -10,6 +10,7 @@ uv.lock
 smoke_test_output.json
 api_smoke_output.json
 data/results/
+exp4_full.log
 
 .DS_Store
 .ipynb_checkpoints/

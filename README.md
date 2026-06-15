@@ -1,25 +1,67 @@
-# SSI v2 — Safety Eval Reliability Under Production Inference
+# SSI v2 — How stable are safety evaluations under real inference?
 
-SSI v1 (arXiv:2512.12066) showed that 18–28% of harmful prompts flip between
-refuse/comply across sampling configurations in a controlled vLLM setting.
-v2 asks how much worse this problem is under realistic conditions: with strict
-determinism flags enabled (Exp 1), at 70B+ scale (Exp 2), under production
-inference features like speculative decoding and variable batch sizes (Exp 3),
-through seedless closed-source APIs (Exp 4), and across different safety
-post-training regimes (Exp 5). The goal is a second empirical artifact that
-directly addresses the "production inference introduces more non-determinism"
-critique raised against v1, with a target of a NeurIPS 2026 submission and an
-Alignment Forum writeup.
+> **Preview.** Experiment 4 (closed-source production APIs) is complete and reported
+> below. Experiments 1–3 and 5 are in progress — see the roadmap. This page will fill
+> in as each result lands.
 
-## Experiments
+This repository is the second empirical artifact in a line of work on the
+**reproducibility of LLM safety evaluations**. SSI v1 (arXiv:2512.12066) showed that
+18–28% of harmful prompts flip between *refuse* and *comply* across sampling
+configurations in a controlled vLLM setting. A natural objection followed: *that
+instability was an artifact of an artificial setup — real production inference would
+behave differently, and probably worse.* v2 tests that objection head-on.
 
-1. **Determinism isolation** — rerun v1 with `CUBLAS_WORKSPACE_CONFIG=:4096:8`
-   and `torch.use_deterministic_algorithms(True)`; compare flip rates.
-2. **Scale testing** — Llama 3.1 70B + Qwen 2.5 72B on the same 876 prompts.
-3. **Production inference** — vLLM with spec decoding on/off, varied batch sizes.
-4. **Closed-source APIs** — gpt-4o-2024-11-20, claude-sonnet-4-5-20250929,
-   claude-opus-4-7 (pinned in `scripts/run_exp4.py`), no seed control.
-5. **(Stretch) Safety training comparison** — base instruct vs. DPO/RLHF variants.
+## The question
+
+How much does a model's refuse-vs-comply verdict move when nothing about the prompt
+changes and you only re-run it? Per prompt we measure two things:
+
+- **SSI** — the share of prompts whose verdict flips at least once across repeated,
+  identical calls (lower = more stable).
+- **Mean flip rate** — the average per-prompt probability that the verdict changes.
+
+## What Experiment 4 found (closed-source APIs, no seed control)
+
+Three frontier models, a stratified 200-prompt sample, 5 reruns each (~3,000 calls),
+with no determinism flags or seed control of any kind:
+
+| Model | SSI (prompts that flip) | Mean flip rate |
+|---|---|---|
+| claude-opus-4-7 | 0.5% | 0.20% |
+| claude-sonnet-4-5 | 2.0% | 0.40% |
+| gpt-4o-2024-11-20 | 2.5% | 0.60% |
+
+**1. Frontier production APIs are highly stable.** Single-digit-percent or lower, versus
+18–28% on the small open models in v1 — even with zero determinism controls. Only 10 of
+600 (prompt, model) pairs flipped at all, and clearly-harmful prompts showed **0%
+instability** across all three models: they refuse reliably. The residual instability
+lives entirely in borderline / contested prompts (politics, copyright, persuasion on
+disputed claims). That is the direct empirical answer to the "production inference is
+worse" objection: on these models, it isn't.
+
+**2. The interesting instability is a value judgment, not noise.** On a prompt asking for
+a persuasive article defending a contested territorial annexation as "democratic," the
+three models make three *different but internally stable* choices: one complies every
+time, one refuses every time, and only the third actually flips (4 of 5 complies). The
+disagreement is *across* models, not *within* a model's randomness — a sharper result
+than any single aggregate number. Where models are unstable, it is because the prompt is
+genuinely ambiguous and they resolve it differently.
+
+### Methods note — why we validated before believing it
+
+An initial pass reported one model at ~19.5% instability. A spot-check flagged it as an
+artifact: that model phrases refusals with a curly apostrophe (U+2019) while the
+refusal-detection patterns used straight apostrophes, so identical refusals were counted
+as flips. Normalizing smart punctuation dropped it to its true 2.5% — an 8× false
+headline avoided. The classifier is deliberately conservative; see Limitations.
+
+## Limitations
+
+- **Binary refuse/comply.** Soft redirects ("I can help you think this through, but I
+  won't write that") are currently scored as *comply*, so true SSI may be marginally
+  lower than reported. An LLM-judge scoring pass would tighten this; it is planned for the
+  full paper, not this preview.
+- Experiment 4 uses a stratified 200-prompt sample of the v1 prompt set, not all 876.
 
 ## Layout
 
@@ -29,29 +71,32 @@ ssi_v2/
 │   ├── prompts/
 │   │   ├── prompts.csv        # 876 BeaverTails prompts (copied from v1)
 │   │   └── exp4_sample.csv    # stratified 200-prompt sample for Exp 4
-│   └── results/exp4/          # Exp 4 output (calls.jsonl; gitignored)
+│   └── results/exp4/          # Exp 4 output (calls.jsonl, analysis; gitignored)
 ├── scripts/
 │   ├── smoke_test.py          # vLLM smoke (Lambda Cloud)
 │   ├── api_smoke.py           # OpenAI + Anthropic smoke (laptop-runnable)
-│   └── run_exp4.py            # Exp 4 driver (resumable; ~3,000 calls, ~$20–25)
+│   ├── run_exp4.py            # Exp 4 driver (resumable; ~3,000 calls, ~$20–25)
+│   └── analyze_exp4.py        # Exp 4 stability analysis → SSI / flip rates
 └── pyproject.toml             # deps; install [cloud] extra on GPU box only
 ```
 
-## Setup
+## Setup & reproduction
 
 ```bash
-# Laptop (API track — Exp 4)
+# Laptop (API track — Experiment 4)
 uv sync
 uv run python scripts/api_smoke.py
+uv run python scripts/run_exp4.py --dry-run    # sanity-check the plan
+uv run python scripts/run_exp4.py              # resumable; ~3,000 calls, ~$20–25
+uv run python scripts/analyze_exp4.py          # SSI / flip-rate table
 
-# Exp 4 (resumable; rerun the same command after a crash)
-uv run python scripts/run_exp4.py --dry-run   # sanity-check the plan first
-uv run python scripts/run_exp4.py
-
-# Lambda Cloud (Exps 1–3)
+# Lambda Cloud (GPU track — Experiments 1–3)
 uv sync --extra cloud
 uv run python scripts/smoke_test.py
 ```
+
+Models for Experiment 4 are pinned in `scripts/run_exp4.py`; copy `.env.example` to
+`.env` and fill in your API keys first.
 
 > **Note on torch pin.** The `[cloud]` extra pins `torch==2.4.0` to match
 > `vllm==0.6.3`'s actual requirement. SSI v1's `requirements.txt` pinned
@@ -59,3 +104,19 @@ uv run python scripts/smoke_test.py
 > install time; this repo makes the real installed version explicit so
 > `uv sync --extra cloud` produces a reproducible environment — important
 > because Experiment 1 is specifically measuring inference determinism.
+
+## Roadmap
+
+| # | Experiment | Status |
+|---|---|---|
+| 1 | Determinism isolation (v1 rerun with determinism flags) | Planned |
+| 2 | Scale (Llama 3.1 70B, Qwen 2.5 72B) | Planned |
+| 3 | Production inference (vLLM spec-decoding, batch variation) | Planned |
+| 4 | **Closed-source APIs** | ✅ Complete |
+| 5 | Safety-training comparison (base vs DPO/RLHF) | Stretch |
+
+Target venue: a NeurIPS 2026 workshop, with an Alignment Forum writeup.
+
+## Prior work
+
+SSI v1 — arXiv:2512.12066.
