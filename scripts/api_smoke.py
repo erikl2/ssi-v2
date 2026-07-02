@@ -1,7 +1,7 @@
 """
 SSI v2 — API smoke test (Experiment 4, laptop-runnable).
 
-Loads 10 BeaverTails prompts, hits gpt-4o-2024-11-20 and
+Loads 10 prompts (AdvBench/HarmBench), hits gpt-4o-2024-11-20 and
 claude-haiku-4-5-20251001 2x each per prompt (no seed control; the point is to
 measure what real deployers actually get), and writes timestamped responses to
 api_smoke_output.json.

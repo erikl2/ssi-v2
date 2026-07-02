@@ -1,7 +1,7 @@
 """
 SSI v2 — vLLM smoke test (Lambda Cloud).
 
-Loads 10 BeaverTails prompts, runs Llama 3.1 8B Instruct via vLLM at t=0.0
+Loads 10 prompts (AdvBench/HarmBench), runs Llama 3.1 8B Instruct via vLLM at t=0.0
 with strict determinism flags, prints the responses, and writes them to
 smoke_test_output.json.
 
