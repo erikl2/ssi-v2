@@ -33,7 +33,7 @@ from matplotlib.patches import FancyBboxPatch, Patch
 
 # Reuse the *exact* classifier and paths the analysis uses — single source of truth.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from analyze_exp4 import CALLS, is_refusal  # noqa: E402
+from analyze_exp4 import CALLS, is_error, is_refusal  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 FIGDIR = ROOT / "figures"
@@ -104,11 +104,16 @@ def verify(rows: list[dict]) -> dict:
     for r in rows:
         groups[(r["model"], r["prompt_id"])].append(r)
 
+    # Mirror analyze_exp4: errors are their own category — excluded from the
+    # numerator and denominator. All-error prompts drop out entirely.
     prompts = defaultdict(int)
     unstable = defaultdict(int)
     for (model, _pid), calls in groups.items():
-        n = len(calls)
-        refuse = sum(is_refusal(c) for c in calls)
+        valid = [c for c in calls if not is_error(c)]
+        n = len(valid)
+        if n == 0:
+            continue
+        refuse = sum(is_refusal(c) for c in valid)
         prompts[model] += 1
         if 0 < refuse < n:
             unstable[model] += 1
@@ -117,14 +122,15 @@ def verify(rows: list[dict]) -> dict:
     for short, mid in MODELS:
         recomputed = unstable[mid] / prompts[mid]
         canonical = analysis["by_model"][mid]["ssi"]
-        assert abs(recomputed - canonical) < 1e-9, (
+        # canonical is rounded to 4 dp in the analysis JSON; match that precision.
+        assert abs(round(recomputed, 4) - canonical) < 1e-9, (
             f"SSI mismatch for {mid}: recomputed {recomputed} vs analysis {canonical}")
         ssi_pct[short] = round(canonical * 100, 4)
 
-    # Assert the exact numbers quoted in the blog post / task.
-    assert ssi_pct["Opus"] == 0.5,   ssi_pct
-    assert ssi_pct["Sonnet"] == 2.0, ssi_pct
-    assert ssi_pct["GPT-4o"] == 2.5, ssi_pct
+    # Assert the exact numbers quoted in the blog post (errors excluded).
+    assert ssi_pct["Opus"] == 0.5,    ssi_pct
+    assert ssi_pct["Sonnet"] == 1.11, ssi_pct
+    assert ssi_pct["GPT-4o"] == 2.5,  ssi_pct
 
     # --- Figure 2: the divergence prompt, recomputed from raw calls ---
     by_model_seq: dict[str, list[bool]] = {}
@@ -220,7 +226,7 @@ def figure1(ssi_pct: dict) -> None:
                  x=0.015, y=0.975, ha="left", fontsize=16, fontweight="bold",
                  color=INK)
     ax.set_title("Instability across 5 identical, seedless API calls  ·  "
-                 "200 prompts per model",
+                 "up to 200 prompts per model (content-filtered calls excluded)",
                  loc="left", fontsize=10.5, color=INK_2, pad=10)
 
     fig.text(0.015, 0.015,

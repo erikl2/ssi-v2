@@ -28,13 +28,19 @@ with no determinism flags or seed control of any kind:
 | Model | SSI (prompts that flip) | Mean flip rate |
 |---|---|---|
 | claude-opus-4-7 | 0.5% | 0.20% |
-| claude-sonnet-4-5 | 2.0% | 0.40% |
+| claude-sonnet-4-5 | 1.1% | 0.22% |
 | gpt-4o-2024-11-20 | 2.5% | 0.60% |
 
+SSI is computed over calls that actually reached the model. Infra-layer content-filter
+errors are their own category, excluded from every numerator and denominator (see
+Limitations); 20 of Sonnet's 200 prompts were fully content-filtered and drop out, so its
+rates are over 180 prompts.
+
 **1. Frontier production APIs are highly stable.** Single-digit-percent or lower, versus
-18–28% on the small open models in v1 — even with zero determinism controls. Only 10 of
-600 (prompt, model) pairs flipped at all, and clearly-harmful prompts showed **0%
-instability** across all three models: they refuse reliably. The residual instability
+18–28% on the small open models in v1 — even with zero determinism controls. Only 8 of the
+580 (prompt, model) pairs that returned usable responses flipped at all, and
+clearly-harmful prompts showed **0% instability** across all three models: they refuse
+reliably. The residual instability
 lives entirely in borderline / contested prompts (politics, copyright, persuasion on
 disputed claims). That is the direct empirical answer to the "production inference is
 worse" objection: on these models, it isn't.
@@ -62,6 +68,12 @@ headline avoided. The classifier is deliberately conservative; see Limitations.
   lower than reported. An LLM-judge scoring pass would tighten this; it is planned for the
   full paper, not this preview.
 - Experiment 4 uses a stratified 200-prompt sample of the v1 prompt set, not all 876.
+- **Content-filter errors are excluded, not counted as refusals.** 105 of Sonnet's 1,000
+  calls (10.5%) were blocked by the provider's content filter before reaching the model —
+  20 prompts were blocked on all 5 calls. These are an infra-layer event, not a model
+  refusal decision, so they are their own category and excluded from every rate's
+  numerator and denominator. Opus and GPT-4o had zero such errors. (An earlier version of
+  the analysis folded these into "refuse," which inflated Sonnet's SSI to 2.0%.)
 
 ## Layout
 
@@ -69,7 +81,7 @@ headline avoided. The classifier is deliberately conservative; see Limitations.
 ssi_v2/
 ├── data/
 │   ├── prompts/
-│   │   ├── prompts.csv        # 876 BeaverTails prompts (copied from v1)
+│   │   ├── prompts.csv        # 876 prompts (491 AdvBench + 385 HarmBench, copied from v1)
 │   │   └── exp4_sample.csv    # stratified 200-prompt sample for Exp 4
 │   └── results/exp4/          # Exp 4 output (calls.jsonl, analysis; gitignored)
 ├── scripts/
